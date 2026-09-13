@@ -1,0 +1,12 @@
+.venv/
+data/UCI_HAR_Dataset/
+results/dataset.npz
+firmware/esp32_har/build/
+__pycache__/
+*.pyc
+data/__MACOSX/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+graft/
+report/report.html

@@ -1,0 +1,8 @@
+name: "HAR replay benchmark"
+version: 1
+author: "AIoT course project"
+steps:
+  - wait-serial: "HEAP,after_alloc"
+  - delay: 8000ms          # ~8 s of LIVE mode first: shows measured sampling rate + live inference
+  - write-serial: "r"
+  - wait-serial: "END"

@@ -1,0 +1,6 @@
+# Wokwi for VS Code / wokwi-cli configuration.
+# Build first:  arduino-cli compile --fqbn esp32:esp32:esp32 --output-dir build .
+[wokwi]
+version = 1
+firmware = "build/esp32_har.ino.bin"
+elf = "build/esp32_har.ino.elf"

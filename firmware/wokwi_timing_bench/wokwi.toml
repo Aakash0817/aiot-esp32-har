@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = "build/wokwi_timing_bench.ino.bin"
+elf = "build/wokwi_timing_bench.ino.elf"

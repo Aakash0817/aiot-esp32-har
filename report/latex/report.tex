@@ -1,0 +1,251 @@
+% On-Device Human Activity Recognition on an ESP32 with Post-Training Int8 Quantisation
+% Compile with pdfLaTeX (Overleaf default). Figures are in ./figures/
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=18mm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{siunitx}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue!60!black,citecolor=black}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true}
+
+\graphicspath{{figures/}}
+\setlist{nosep,leftmargin=*}
+\captionsetup{font=small,labelfont=bf}
+\sisetup{detect-all}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+
+\title{\textbf{On-Device Human Activity Recognition on an ESP32\\ with Post-Training Int8 Quantisation}\\[4pt]
+\large Course project --- Developing the Artificial Intelligence of Things (2026--2027)}
+\author{Aakash}
+\date{September 2026}
+
+\begin{document}
+\maketitle
+\vspace{-14pt}
+\begin{center}\small
+\textbf{Repository:} \texttt{AIOT/} (see README) \quad$\cdot$\quad
+\textbf{Wokwi project:} \texttt{firmware/esp32\_har/diagram.json} \quad$\cdot$\quad
+\textbf{Results:} \texttt{results/summary.md}
+\end{center}
+
+% =====================================================================
+\section{Prototype}
+
+\subsection{Problem and objectives}
+
+Wearable and ambient devices that recognise what a person is doing --- walking, climbing stairs, sitting, lying down --- are the sensing front-end of many AIoT applications: fall detection for elderly care, activity logging for rehabilitation, and context-aware energy management in buildings. The na\"ive architecture streams raw inertial data to the cloud and classifies it there. For a motion sensor that is a poor design on every axis discussed in the course: a 6-axis IMU at \SI{50}{\hertz} produces a continuous \SI{4.8}{kbit/s} stream, the radio needed to carry it dominates the energy budget, the round trip adds seconds of response latency, and the raw stream is personally identifiable data leaving the device. The course's privacy principle of \emph{data minimisation} (Chapter~1.6) says that a system should never transmit raw, identifiable data if it can be avoided.
+
+The prototype therefore keeps the intelligence on the device. Its objectives were fixed at the start:
+\begin{enumerate}
+  \item \textbf{A deliberately designed sensing pipeline} on a microcontroller: a fixed-rate acquisition scheme, a windowing strategy matched to the physical signal, and measurable guarantees that the pipeline delivers what it claims.
+  \item \textbf{An AI model running on the microcontroller itself}, evaluated in a way that does not overstate its accuracy.
+  \item \textbf{One edge-optimisation technique} --- post-training quantisation --- applied with its actual parameters recorded, and evidence of how it moves the model on the accuracy--latency--size trade-off \emph{for the chosen device}.
+\end{enumerate}
+The result is an ESP32 that samples an MPU6050 at \SI{50}{\hertz}, classifies each \SI{2.56}{\second} window into six activities with an int8 1D-CNN, shows the result on an OLED and publishes it over MQTT.
+
+\subsection{Evaluation in the context of Chapter 1.6}
+
+Chapter~1.6 argues that a prototype's requirements should be written as \emph{falsifiable design hypotheses} --- an operating condition, an observable metric and a pass/fail threshold --- rather than as vague goals, and that every iteration of the hardware is an experiment on those hypotheses. I applied that framing to the four properties that matter for an on-device HAR node (Table~\ref{tab:hyp}). Every hypothesis is checked by a counter that the firmware prints; none of them is assumed.
+
+\begin{table}[h]\small\centering
+\caption{Design hypotheses in the form of Chapter 1.6 and their outcomes.}
+\label{tab:hyp}
+\begin{tabularx}{\textwidth}{@{}c L L L L@{}}
+\toprule
+\# & Operating condition & Observable metric & Threshold & Outcome \\
+\midrule
+H1 & Continuous operation with inference, display and network active & Measured sampling rate, missed sample deadlines, dropped windows & $50\pm0.5$\,Hz, 0 missed, 0 dropped & \textbf{Pass} (50.0\,Hz, 0, 0) --- after three architectural revisions (\S\ref{sec:iter}) \\
+H2 & Classification of people \emph{not} in the training data & Test accuracy on held-out subjects & $\geq 90\,\%$ for float32 and int8 & \textbf{Pass} (90.9\,\% / 91.2\,\%) \\
+H3 & Quantised model on the ESP32 & Accuracy loss vs float32; RAM (tensor arena); flash & $\leq 1$\,pt loss; arena $\leq 16$\,KB; both models resident & \textbf{Pass} ($+0.24$\,pt; 7.6\,KB; both resident) \\
+H4 & Quantised inference on the ESP32 & Processing latency & int8 faster than float32 & \textbf{Fails in simulation} (446 vs 111\,ms) --- analysed in \S\ref{sec:ai}; expected to pass on physical silicon with optimised kernels \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Two other themes of the chapter shaped the design. \emph{Cyber-physical resilience}: the chapter warns that missed real-time deadlines make a model useless regardless of its accuracy, so the sampler was isolated from everything that can block (inference, display, network). \emph{Data integrity and communication}: messages are self-describing JSON with units and the measured sampling rate, avoiding the ``what does 45 mean'' ambiguity the chapter describes; and the device transmits only the class label, so no motion trace can be reconstructed from the network. The chapter's ``ideal network fallacy'' is also visible in my logs --- the first MQTT integration silently broke the sampler during a one-second TCP connect, exactly the kind of benchtop-only assumption the chapter cautions against.
+
+\subsection{Development process, iterations and abandoned approaches}\label{sec:iter}
+
+\paragraph{Board.} I chose the ESP32 DevKit-C over the Raspberry Pi Pico and the Arduino Uno. The Uno's \SI{2}{KB} of RAM cannot hold even the \SI{3}{KB} sample window. The Pico would fit the int8 model, but the ESP32's \SI{520}{KB} SRAM allowed me to keep \emph{both} the float32 and the int8 model resident (\SI{19.8}{KB} + \SI{7.6}{KB} arenas) so that they could be compared on identical inputs, its second core allowed a hard separation between real-time sampling and inference, its two I2C controllers let the sensor and the display live on separate buses, and its Wi-Fi radio made the communication add-on possible. Each of these features ended up being used, which is the justification.
+
+\paragraph{Data.} Wokwi's MPU6050 is driven by sliders, so it produces a constant vector and cannot generate a gait. I therefore trained on the UCI HAR dataset~\cite{anguita2013}: 30 subjects wearing a waist-mounted phone with an MPU-class IMU, sampled at \SI{50}{\hertz}, with total acceleration and gyroscope signals --- the same physical quantities the MPU6050 delivers. This also fixed the sampling rate and window length of the firmware, because the deployed pipeline must reproduce the training pipeline exactly.
+
+\paragraph{Iterations.} The path from first idea to working prototype went through six documented revisions:
+\begin{enumerate}
+  \item \emph{Model --- MaxPooling abandoned.} The first CNN used max-pooling. Training it on the GPU with deterministic operations enabled failed because the max-pool gradient has no deterministic GPU kernel. Rather than give up bit-exact reproducibility, I switched to average pooling; accuracy was unchanged.
+  \item \emph{Toolchain --- TensorFlow 2.16 abandoned.} Its TFLite converter cannot convert Keras-3 \texttt{Conv1D} layers. Pinning TensorFlow 2.17.1 fixed it; the pin is recorded in \texttt{requirements.txt}.
+  \item \emph{Firmware --- inference in the main loop abandoned.} The first firmware ran inference inside \texttt{loop()}. In the simulator an inference takes hundreds of milliseconds, and the log showed 64 missed samples per inference --- the sampler was starved. Inference was moved into a FreeRTOS task pinned to core~0, with the sampler alone on core~1.
+  \item \emph{Firmware --- shared I2C bus abandoned.} With inference off the sampler's core, deadlines were still missed once per window. The cause was the OLED refresh ($\approx$\SI{1}{KB} over I2C at \SI{400}{kHz} $\approx$ \SI{25}{ms}) holding the bus that the sampler needed for the IMU. The display was moved to the ESP32's second I2C controller, which also removed the need for a mutex.
+  \item \emph{Firmware --- networking in the main loop abandoned.} Adding MQTT to \texttt{loop()} reintroduced 36 missed deadlines: the initial DNS + TCP connect blocks for about a second. All networking was moved into the core-0 task. Hypothesis H1 passed only after this change.
+  \item \emph{Build --- \texttt{-Os} replaced by \texttt{-O2}.} The Arduino default optimises for size; \texttt{-O2} reduced simulated inference latency about seven-fold for \SI{14}{KB} more flash --- a size-versus-latency trade-off in miniature.
+\end{enumerate}
+
+% =====================================================================
+\section{Sensing pipeline}
+
+\subsection{Hardware, sensors and communication}
+
+\paragraph{Sensor and signals.} The MPU6050 is a 6-axis MEMS inertial unit with 16-bit outputs. It is configured for $\pm$\SI{2}{g} and $\pm$\SI{250}{\degree/s} full scale (the ranges of human locomotion) and its on-chip digital low-pass filter is set to \SI{21}{\hertz}. The captured signals are three axes of total acceleration in g (gravity plus body acceleration, which encodes posture) and three axes of angular rate in rad/s (which encodes rotation during gait). The sensor's Z axis is mounted along the dataset's ``vertical when upright'' axis, and the axis mapping is documented in the firmware.
+
+\paragraph{Reading mode --- polling with a deadline scheduler.} Chapter~1.3 distinguishes streaming, polling and event-based (interrupt-driven) acquisition. Streaming is unnecessary: at \SI{50}{\hertz} the IMU produces 14 bytes every \SI{20}{ms}, a trivial load for a \SI{400}{kHz} I2C bus. Interrupt-driven acquisition would be the most energy-efficient choice on hardware, but Wokwi's MPU6050 does not model the INT pin, and the ESP32 is not power-limited in this prototype. I therefore poll, but not na\"ively: the sampler keeps a phase-locked deadline (\texttt{next = next + 20\,000\,\textmu s}, never \texttt{next = now + 20\,000\,\textmu s}), so scheduling jitter does not accumulate into drift --- the temporal-alignment problem Chapter~1.3 warns about. The firmware counts every deadline missed by more than one period and reports the \emph{measured} rate every second. The course brief notes that a sensor configured for \SI{100}{\hertz} rarely delivers exactly \SI{100}{\hertz}; the design's answer is to measure rather than assume, and H1 is the resulting hypothesis.
+
+\paragraph{Sampling frequency --- 50 Hz, chosen by Nyquist, not by energy.} The energy of human locomotion lies below roughly 15--\SI{20}{\hertz}. The Nyquist criterion therefore requires at least \SI{40}{\hertz}; \SI{50}{\hertz} gives margin and matches the training data exactly. The \SI{21}{\hertz} on-chip low-pass filter acts as the anti-aliasing filter, suppressing content above $f_s/2 = \SI{25}{\hertz}$ so that fast vibration cannot masquerade as slow motion. This is the opposite regime from the environmental-monitoring topic, where the signal is slow and the sampling period is chosen by the \emph{energy} budget through duty cycling.
+
+\paragraph{Windowing.} Samples enter a $128\times6$ ring buffer (\SI{3}{KB}). A window of 128 samples is \SI{2.56}{s}, longer than one gait cycle ($\sim$\SI{1}{s}), so every window of a periodic activity contains at least two full cycles. Inference is triggered every 64 new samples (50\,\% overlap), giving a decision every \SI{1.28}{s} while halving compute compared with per-sample inference. Both numbers are identical to the dataset's segmentation, so a window seen by the model on the device is statistically the same object it was trained on.
+
+\paragraph{Pre-processing parity.} The per-channel mean and standard deviation of the training subjects are computed once by the training script and compiled into the firmware (\texttt{har\_config.h}). The same function standardises a live window and a replayed window, so there is exactly one code path from raw units to model input.
+
+\paragraph{Concurrency.} The sampler runs in \texttt{loop()} on core~1. Inference, the OLED and the network run in a FreeRTOS task on core~0. The IMU is on I2C controller~0 and the OLED on controller~1. If a window is ready while inference is still running, the window is dropped and counted rather than delaying sampling. The result under full load --- both models, display refresh, MQTT --- is \SI{50.0}{\hertz}, 0 missed deadlines, 0 dropped windows.
+
+\paragraph{Communication --- MQTT publish--subscribe.} Each classified window is published as a $\sim$150-byte JSON message (source, label, both models' predictions, confidences, latencies, measured rate) to \texttt{aiot/har/<chip-id>/activity} on a public broker with QoS~0, and a browser dashboard subscribes over WebSockets. Publish--subscribe suits a constrained device because the device never waits for a consumer, needs no server socket, and any number of subscribers can be added without touching the firmware. QoS~0 is appropriate because a lost label is superseded \SI{1.28}{s} later. The quantitative argument for edge inference is stark: the label channel carries about \SI{6}{bit/s} of information, the raw IMU stream \SI{4.8}{kbit/s}. The add-on is not free --- the Wi-Fi/TCP stack costs \SI{472}{KB} of flash (518 $\rightarrow$ \SI{991}{KB}) and, as \S\ref{sec:iter} recounts, its blocking connect had to be kept off the sampler core.
+
+\paragraph{Output.} The OLED shows the source, the int8 prediction, both models' confidence and latency, and the measured rate; the serial port emits machine-parseable lines from which every on-device number in this report is generated by a script.
+
+\subsection{Energy budget (estimate)}
+
+The prototype is simulated, so this is an estimate from datasheet values. The MPU6050 draws about \SI{3.9}{mA} with both sensors on. The ESP32 draws roughly 30--\SI{50}{mA} when active at \SI{240}{MHz} and \SI{100}{mA} or more while the radio transmits. The inference duty cycle is \SI{111}{ms} per \SI{1.28}{s} window $\approx 9\,\%$; the radio is active for a few milliseconds per window. The design decision that matters most for energy is therefore \emph{what} is transmitted: one label per window instead of \SI{1.5}{KB} of raw samples per window keeps radio on-time near zero. The obvious next step, not implemented here, is to light-sleep core~0 between windows and to move the IMU to interrupt-driven acquisition so that the sampler core can sleep between samples --- the duty-cycling strategy Chapter~1.3 describes for slow sensors, applied at a \SI{20}{ms} granularity.
+
+\subsection{On-device AI}\label{sec:ai}
+
+\paragraph{Model.} A small 1D convolutional network: Conv1D(16, $k$=5) $\rightarrow$ AvgPool(4) $\rightarrow$ Conv1D(32, $k$=5) $\rightarrow$ AvgPool(4) $\rightarrow$ Conv1D(32, $k$=3) $\rightarrow$ global average pooling $\rightarrow$ Dense(32) $\rightarrow$ Dense(6, softmax); 7\,446 parameters. A CNN learns its own filters over the time axis, replacing the hand-crafted statistical features of classical HAR, and 7\,k parameters is small enough that even the float32 version fits comfortably in RAM --- the architecture was sized for the device first. Training: Adam, batch 64, early stopping on the validation subjects, learning-rate reduction on plateau, seed 42, deterministic GPU kernels; 31 epochs in \SI{11}{s}.
+
+\paragraph{Evaluation protocol --- subject-grouped split.} Chapter~2.3 explains that random splits of continuous sensing data cause \emph{data leakage}: overlapping windows from the same person appear on both sides of the split and the model is rewarded for recognising the person rather than the activity. I therefore partitioned by subject: 17 subjects for training (6\,054 windows), 4 for validation and early stopping (1\,298), and 9 never seen during development for testing (2\,947). The script asserts that the three subject sets are disjoint. All accuracies below are for unseen people, which is what robustness means in the course's sense.
+
+\paragraph{Optimisation technique --- post-training quantisation, actual settings.} Following the chapter's advice to ``quantise first'' because it is the cheapest step with the largest gain, I applied full-integer PTQ with the TFLite converter:
+\begin{itemize}
+  \item operator set \texttt{TFLITE\_BUILTINS\_INT8}; weights int8, symmetric, \textbf{per-channel}; activations int8, asymmetric, per-tensor; biases int32; input and output tensors int8 (no float ops remain);
+  \item calibration with 500 representative windows drawn from the training split with a fixed seed;
+  \item resulting input quantisation scale 0.10107 with zero-point $-6$; output scale $1/256$ with zero-point $-128$.
+\end{itemize}
+I chose PTQ rather than quantisation-aware training because the accuracy loss turned out to be zero; QAT would have added training complexity for no measurable benefit. Mixed precision (keeping first/last layers in float) was likewise unnecessary.
+
+\paragraph{Results before and after.}
+
+\begin{table}[h]\small\centering
+\caption{Float32 baseline versus int8 PTQ model (generated by \texttt{training/07\_summary.py}).}
+\label{tab:results}
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+metric & float32 (before) & int8 PTQ (after) & change \\
+\midrule
+test accuracy, 9 unseen subjects ($n=2\,947$) & 90.94\,\% & 91.18\,\% & $+0.24$\,pt \\
+macro-F1 & 0.909 & 0.911 & $+0.002$ \\
+float $\leftrightarrow$ int8 prediction agreement & -- & 99.05\,\% & \\
+weight bytes & 29\,784 & 7\,446 & 4.0$\times$ smaller \\
+\texttt{.tflite} file in flash & 36\,460\,B & 18\,352\,B & 2.0$\times$ smaller \\
+tensor arena (ESP32 RAM) & 19\,792\,B & 7\,556\,B & 2.6$\times$ smaller \\
+on-device accuracy, 18 replayed windows & 94.4\,\% & 88.9\,\% & \\
+host $\leftrightarrow$ device prediction agreement & 100\,\% & 94.4\,\% & \\
+processing latency, Wokwi ESP32, 240\,MHz, \texttt{-O2} & 110.6\,ms & 446.4\,ms & int8 slower \emph{in simulation} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[h]\centering
+\includegraphics[width=\textwidth]{fig_tradeoff.png}
+\caption{Before/after on the three axes of the edge-AI trade-off.}
+\label{fig:tradeoff}
+\end{figure}
+
+\begin{figure}[h]\centering
+\includegraphics[width=0.95\textwidth]{fig_confusion.png}
+\caption{Confusion matrices on the nine unseen test subjects.}
+\label{fig:confusion}
+\end{figure}
+
+\emph{Accuracy.} Quantisation cost nothing: the int8 model is 0.24 points better, which is within run-to-run noise, and the two models agree on 99\,\% of the 2\,947 test windows. Both models share the same weakness, visible in Figure~\ref{fig:confusion}: about a fifth of SITTING and STANDING windows are swapped. Both are static postures with a near-identical gravity vector, so a \SI{2.56}{s} window of accelerometer and gyroscope data simply does not contain the information needed to separate them reliably; this is a limitation of the sensing modality, not of the quantisation.
+
+\emph{Why PTQ was lossless --- outlier weights and layer sensitivity.} Chapter~2.5 explains that quantisation degrades a model when a layer's weight range is stretched by outliers, leaving too little resolution for the many small, informative weights, and that the damage compounds when the outlier sits in an early layer. I checked this directly: in every layer the largest weight magnitude is at most 3.5 standard deviations from zero (Table~\ref{tab:weights}), i.e.\ the weight distributions are compact and approximately Gaussian (Figure~\ref{fig:weights}), and per-channel quantisation gives each output channel its own scale. The resulting int8 step of 0.003--0.0045 is small relative to the weights' spread. The most sensitive layer by this measure is the second convolution (\texttt{conv1d\_1}, $\max|w|/\sigma = 3.33$ with the smallest step), which would be the first candidate to keep in higher precision if a loss had appeared.
+
+\begin{table}[h]\small\centering
+\caption{Per-layer weight ranges of the float32 model (outlier check).}
+\label{tab:weights}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+layer & weights & min & max & $\max|w|/\sigma$ & int8 step \\
+\midrule
+conv1d   & 480   & $-0.507$ & 0.523 & 2.62 & 0.0040 \\
+conv1d\_1 & 2\,560 & $-0.411$ & 0.337 & 3.33 & 0.0029 \\
+conv1d\_2 & 3\,072 & $-0.477$ & 0.493 & 3.48 & 0.0038 \\
+dense    & 1\,024 & $-0.533$ & 0.561 & 2.79 & 0.0043 \\
+dense\_1  & 192   & $-0.672$ & 0.470 & 2.57 & 0.0045 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[h]\centering
+\includegraphics[width=\textwidth]{fig_weights.png}
+\caption{Float32 weight distributions per layer: compact, no outliers.}
+\label{fig:weights}
+\end{figure}
+
+\emph{Size.} The weights shrink exactly four-fold, as the chapter predicts for float32 $\rightarrow$ int8. The \texttt{.tflite} file shrinks only two-fold because, on a 7\,k-parameter model, the flatbuffer structure and the per-channel quantisation parameters are a large fixed overhead; the ratio would approach 4$\times$ for a larger network. The number that matters on the device is RAM: the tensor arena --- the scratch memory for activations --- drops from \SI{19.8}{KB} to \SI{7.6}{KB} (2.6$\times$), because int8 activations are a quarter the size of float32 ones.
+
+\emph{Latency --- an honest negative result.} In the Wokwi simulation the int8 model is four times \emph{slower} than float32. Three facts explain this. First, Wokwi is functionally accurate but not cycle-accurate: a micro-benchmark in the repository shows that 170\,000 simple float multiply-accumulates take \SI{167}{ms} of simulated time (about 240 simulated cycles each, where real silicon needs 10--20), and that 64-bit integer arithmetic is four times slower again. Second, the TensorFlow Lite Micro library used here contains only \emph{reference} kernels, whose int8 requantisation step uses 64-bit multiplies --- precisely the operation the simulator penalises. Third, on a physical ESP32 with Espressif's ESP-NN kernels the int8 convolution is the accelerated path and is normally several times faster than float. The simulation therefore measures the cost of an unoptimised software path, not of the arithmetic. A secondary observation: enabling MQTT raised float latency from 87 to \SI{111}{ms} because core~0 now also runs the network stack --- processing latency depends on what else shares the core.
+
+\emph{Position on the Pareto frontier.} The course describes the accuracy--latency--size trilemma and the Pareto frontier as the set of configurations where improving one property costs another. On this device, the int8 model \emph{dominates} the float32 model on two axes at equal accuracy: 4$\times$ less weight memory and 2.6$\times$ less RAM with $+0.24$\,pt accuracy --- it is strictly closer to the frontier. On the third axis the outcome depends on the hardware and kernel support beneath the model, which is the most important lesson of the exercise: ``moving toward the frontier for your chosen device'' is a statement about the device's integer execution path as much as about the model. For the simulated ESP32 with reference kernels, the honest frontier is ``int8 for memory, float32 for latency''; for a physical ESP32 with optimised kernels, int8 wins on all three.
+
+\emph{Host versus device.} Running the same 18 held-out windows through the host TFLite interpreter and through the ESP32 gives identical float32 predictions and 17/18 identical int8 predictions. The one difference is a borderline STANDING window (device confidence 0.57, host 0.81) that flips to SITTING; the integer kernels of TFLite and TFLite Micro round their requantisation differently. It is a reminder that a quantised model should be validated on the target, not only on the host.
+
+% =====================================================================
+\section{Self-reflection}
+
+\subsection{Limitations and future work}
+\begin{itemize}
+  \item \textbf{SITTING versus STANDING.} The dominant error is inherent in a waist-mounted IMU over \SI{2.56}{s}. Longer context, a barometer, or transition-aware post-processing (the event-based metrics of Chapter~2.3) would be the next step.
+  \item \textbf{Live dynamic classes cannot be shown from the simulated sensor.} Wokwi's IMU is slider-driven, so the live path can only demonstrate postures. Walking-type classes are demonstrated by injecting recorded windows from held-out subjects through the identical on-device pipeline; the firmware labels these \texttt{INJECT}/\texttt{REPLAY} and never presents them as live data. A physical MPU6050 would remove this limitation entirely.
+  \item \textbf{Latency is simulator-bound.} The negative latency result is explained but not resolved. Thirty minutes with a physical ESP32 and ESP-NN kernels would complete hypothesis H4.
+  \item \textbf{No energy measurement.} \S2.2 is an estimate. Sleep modes and interrupt-driven acquisition are the obvious follow-ups.
+  \item \textbf{Public broker, no security.} Labels are published in clear to a public broker; anyone subscribing to the topic sees the wearer's activity. Chapter~1.6's security discussion applies: TLS, a private broker and credentials in a secure element would be required before any deployment.
+  \item \textbf{Orientation assumption.} The axis mapping assumes the sensor is worn like the dataset's phone. On-device orientation calibration or data augmentation with rotations would make the model robust to placement.
+\end{itemize}
+
+\subsection{One course concept in depth: grouped (leave-subjects-out) evaluation}
+
+\emph{What it means.} When data come from a continuous sensing process, consecutive samples are not independent: overlapping windows from the same person, device or session share fine-grained characteristics --- gait rhythm, sensor bias, posture habits. A random train/test split scatters those correlated windows across both sides, and the evaluation leaks information: the model can score well by recognising the \emph{source} rather than the \emph{activity}. Grouped evaluation conditions the split on the variable that causes the dependency --- here, the subject --- so that every test window comes from an entity the model has never seen. Leave-one-subject-out cross-validation is the strict form; a fixed held-out subject set is the lighter form.
+
+\emph{Why it matters for AIoT.} The course frames evaluation as answering ``does it actually work?'' for a device that will be deployed on people, environments and hardware units that were not in the lab. Accuracy under a leaky protocol is not a prediction of field performance; accuracy under a grouped protocol is an estimate of \emph{robustness} in the course's sense. For an edge system this also protects the optimisation study: if the baseline number is inflated by leakage, the ``accuracy loss after quantisation'' becomes meaningless.
+
+\emph{How I applied it.} The dataset's 30 subjects were split 17/4/9 into disjoint training, validation and test sets, with an assertion in the code that no subject appears twice. Early stopping used the validation subjects, so the test subjects influenced nothing. Every accuracy in this report --- float32, int8, host, device --- is therefore for unseen people. The 18 replay windows in the firmware are drawn from the test subjects for the same reason.
+
+\emph{What I observed.} The training accuracy reached 97\,\% while the unseen-subject accuracy settled at 91\,\% (Figure~\ref{fig:training}); that six-point gap is the honest cost of generalising across people, and it is exactly the gap a random split would have hidden. It also made the SITTING/STANDING confusion visible as a \emph{cross-subject} problem --- different people sit and stand in slightly different postures --- rather than something a model could memorise away.
+
+\begin{figure}[h]\centering
+\includegraphics[width=0.9\textwidth]{fig_training.png}
+\caption{Training curves; validation is on four held-out subjects.}
+\label{fig:training}
+\end{figure}
+
+\subsection{How my understanding of AIoT evolved}
+
+I started this course thinking of an AIoT device as ``a small computer that runs a model'', and of the project as a model-compression exercise. Building the prototype moved the centre of gravity to the \emph{system}. The model took an afternoon; the sensing pipeline took three architectural revisions before it met a requirement as basic as ``sample at \SI{50}{\hertz} while doing everything else''. Quantisation, which I expected to be the headline, turned out to be almost free on the accuracy axis and to depend on the execution path for the latency axis --- the optimisation technique cannot be judged apart from the device it runs on. The evaluation protocol shaped what I could honestly claim, and the communication design was where the real energy and privacy arguments for edge AI became concrete numbers. The chapter that changed my working method most was 1.6: writing requirements as hypotheses with a counter behind each turned debugging from guesswork into experiments, and it is why the missed-deadline counter --- not the confusion matrix --- is the number I am proudest of in this project.
+
+% =====================================================================
+\section{Declaration of AI-tool use}
+
+\textbf{AI tool used:} Claude Code (Anthropic), model Claude Opus 5 (\texttt{claude-opus-5}), September 2026.
+
+\textbf{Purpose:} pair-programming and troubleshooting throughout the project --- scaffolding the training, quantisation and export scripts and the ESP32 firmware; diagnosing toolchain problems (the TensorFlow 2.16 converter bug, the non-deterministic GPU pooling kernel); running and interpreting Wokwi simulations; and drafting this report from the project's results and the course material. The choices of topic, board, optimisation technique and evaluation protocol were made by the author.
+
+\emph{Note for this archived version:} this report was drafted with the AI tool named above and is kept for personal reference. The course requires that a submitted report be written by the student; if it were ever submitted it would have to be rewritten in the author's own words, with this declaration retained.
+
+% =====================================================================
+\begin{thebibliography}{9}\small
+\bibitem{anguita2013} D.~Anguita, A.~Ghio, L.~Oneto, X.~Parra, J.~L.~Reyes-Ortiz, ``A Public Domain Dataset for Human Activity Recognition Using Smartphones,'' \emph{ESANN}, 2013 (UCI HAR dataset).
+\bibitem{course} Course material, \emph{Developing the Artificial Intelligence of Things}: Chapters 1.3 (Sensors and Sensing), 1.4 (IoT Communications), 1.6 (Prototype Evaluation), 2.3 (AI Evaluation in AIoT), 2.5 (AI on the Edge).
+\bibitem{tflite} TensorFlow Lite, \emph{Post-training integer quantization} and \emph{TensorFlow Lite for Microcontrollers} documentation.
+\bibitem{mpu} InvenSense, \emph{MPU-6000/MPU-6050 Product Specification} and \emph{Register Map}.
+\end{thebibliography}
+
+\end{document}

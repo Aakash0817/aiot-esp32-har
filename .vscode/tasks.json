@@ -1,0 +1,9 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "1 build firmware", "type": "shell", "command": "${workspaceFolder}/firmware/esp32_har/build.sh", "group": { "kind": "build", "isDefault": true }, "problemMatcher": [] },
+    { "label": "2 run in Wokwi (CLI, needs WOKWI_CLI_TOKEN)", "type": "shell", "command": "PATH=$PATH:$HOME/.wokwi/bin ${workspaceFolder}/firmware/esp32_har/run_wokwi.sh", "problemMatcher": [] },
+    { "label": "3 parse device log + figures + summary", "type": "shell", "command": "cd training && ../.venv/bin/python 05_parse_device_log.py && ../.venv/bin/python 06_make_figures.py && ../.venv/bin/python 07_summary.py", "problemMatcher": [] },
+    { "label": "0 train + quantize + export (host)", "type": "shell", "command": "cd training && for s in 01_prepare_data 02_train 03_quantize 04_export_c; do ../.venv/bin/python $s.py || exit 1; done", "problemMatcher": [] }
+  ]
+}

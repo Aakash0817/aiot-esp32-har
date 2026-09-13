@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>ESP32 HAR live dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+ body{font-family:system-ui,sans-serif;margin:0;background:#111;color:#eee}
+ header{padding:12px 20px;background:#1b1b1b;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+ input{background:#222;color:#eee;border:1px solid #444;padding:6px 8px;border-radius:4px;width:260px}
+ button{padding:6px 14px;border:0;border-radius:4px;background:#2d7ef7;color:#fff;cursor:pointer}
+ #status{font-size:13px;color:#aaa}
+ main{padding:20px;display:grid;grid-template-columns:1.2fr 1fr;gap:20px}
+ .card{background:#1b1b1b;border-radius:10px;padding:18px}
+ #activity{font-size:64px;font-weight:700;letter-spacing:1px;margin:6px 0}
+ .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:15px}.kv b{color:#9ad}
+ #timeline{display:flex;gap:2px;height:60px;align-items:flex-end;margin-top:8px}
+ #timeline div{flex:1;border-radius:2px 2px 0 0;min-width:4px}
+ #counts{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;text-align:center;margin-top:10px}
+ #counts div{background:#222;padding:8px 4px;border-radius:6px;font-size:12px}#counts b{display:block;font-size:22px}
+ #log{font:12px/1.5 ui-monospace,monospace;background:#0d0d0d;padding:10px;border-radius:6px;height:260px;overflow:auto;white-space:pre}
+ .legend{font-size:12px;color:#aaa;margin-top:6px}.dot{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 10px}
+</style></head><body>
+<header>
+ <strong>ESP32 HAR · MQTT subscriber</strong>
+ <label>topic <input id="topic" value="aiot/har/+/activity"></label>
+ <button id="connect">connect</button><span id="status">disconnected</span>
+</header>
+<main>
+ <section class="card">
+  <div style="color:#aaa;font-size:13px">current activity (int8 model on device)</div>
+  <div id="activity">—</div>
+  <div class="kv">
+   <b>source</b><span id="src">—</span>
+   <b>int8 conf / latency</b><span id="i8">—</span>
+   <b>float32 conf / latency</b><span id="f32">—</span>
+   <b>ground truth</b><span id="truth">—</span>
+   <b>sampling rate</b><span id="rate">—</span>
+   <b>messages</b><span id="n">0</span>
+  </div>
+  <div style="color:#aaa;font-size:13px;margin-top:16px">last 60 windows</div>
+  <div id="timeline"></div>
+  <div class="legend" id="legend"></div>
+  <div id="counts"></div>
+ </section>
+ <section class="card"><div style="color:#aaa;font-size:13px">raw messages (JSON, ~150 B each)</div><div id="log"></div>
+  <p style="font-size:12px;color:#888">Pattern: publish-subscribe. The device publishes one label per 1.28 s window (~6 bit/s of information)
+  instead of streaming raw IMU data (50 Hz × 12 B ≈ 4.8 kbit/s). Broker: broker.hivemq.com (WebSocket port 8884 for this page, TCP 1883 for the ESP32).</p>
+ </section>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.5/mqtt.min.js"></script>
+<script>
+const CLASSES=["WALKING","WALKING_UPSTAIRS","WALKING_DOWNSTAIRS","SITTING","STANDING","LAYING"];
+const COLORS={WALKING:"#4caf50",WALKING_UPSTAIRS:"#8bc34a",WALKING_DOWNSTAIRS:"#cddc39",SITTING:"#ff9800",STANDING:"#f44336",LAYING:"#2196f3"};
+const $=id=>document.getElementById(id); let client,n=0,hist=[],counts={};
+$("legend").innerHTML=CLASSES.map(c=>`<span class="dot" style="background:${COLORS[c]}"></span>${c}`).join("");
+function render(){ $("timeline").innerHTML=hist.map(m=>`<div style="background:${COLORS[m.int8]};height:${Math.round(20+m.int8_conf*40)}px" title="${m.int8} ${m.int8_conf}"></div>`).join("");
+ $("counts").innerHTML=CLASSES.map(c=>`<div style="border-top:3px solid ${COLORS[c]}"><b>${counts[c]||0}</b>${c.replace("WALKING_","")}</div>`).join(""); }
+function onMsg(topic,payload){ let m; try{m=JSON.parse(payload)}catch(e){return}
+ n++; $("n").textContent=n; $("activity").textContent=m.int8; $("activity").style.color=COLORS[m.int8]||"#eee";
+ $("src").textContent=m.src; $("i8").textContent=`${m.int8_conf}  /  ${(m.int8_us/1000).toFixed(1)} ms`; $("f32").textContent=`${m.f32} ${m.f32_conf}  /  ${(m.f32_us/1000).toFixed(1)} ms`;
+ $("truth").textContent=m.truth; $("rate").textContent=m.rate_hz+" Hz"; counts[m.int8]=(counts[m.int8]||0)+1; hist.push(m); if(hist.length>60)hist.shift(); render();
+ const log=$("log"); log.textContent+=`${new Date().toLocaleTimeString()} ${topic}\n  ${payload}\n`; log.scrollTop=log.scrollHeight; }
+$("connect").onclick=()=>{ if(client){client.end();client=null;} $("status").textContent="connecting…";
+ client=mqtt.connect("wss://broker.hivemq.com:8884/mqtt",{clientId:"har-dash-"+Math.random().toString(16).slice(2,8)});
+ client.on("connect",()=>{ $("status").textContent="connected · subscribed to "+$("topic").value; client.subscribe($("topic").value); });
+ client.on("message",(t,p)=>onMsg(t,p.toString())); client.on("error",e=>$("status").textContent="error: "+e.message); client.on("close",()=>$("status").textContent="disconnected"); };
+</script></body></html>

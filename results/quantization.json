@@ -1,0 +1,620 @@
+{
+  "settings": {
+    "scheme": "full-integer PTQ (TFLITE_BUILTINS_INT8)",
+    "weights": "int8 symmetric, per-channel",
+    "activations": "int8 asymmetric, per-tensor",
+    "bias": "int32",
+    "io": "int8",
+    "representative_windows": 500,
+    "seed": 42
+  },
+  "float32": {
+    "model": "float32",
+    "size_bytes": 36460,
+    "test_accuracy": 0.9093993892093655,
+    "macro_f1": 0.9087475153602127,
+    "host_latency_ms_mean": 0.005365959617440936,
+    "input_dtype": "float32",
+    "input_quant": [
+      0.0,
+      0.0
+    ],
+    "output_quant": [
+      0.0,
+      0.0
+    ],
+    "confusion_matrix": [
+      [
+        460,
+        3,
+        32,
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        448,
+        22,
+        0,
+        0,
+        0
+      ],
+      [
+        4,
+        6,
+        409,
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        17,
+        6,
+        369,
+        99,
+        0
+      ],
+      [
+        2,
+        4,
+        0,
+        69,
+        457,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        537
+      ]
+    ]
+  },
+  "int8_ptq": {
+    "model": "int8_ptq",
+    "size_bytes": 18352,
+    "test_accuracy": 0.9117746861214795,
+    "macro_f1": 0.9110700967257914,
+    "host_latency_ms_mean": 0.007573698345672944,
+    "input_dtype": "int8",
+    "input_quant": [
+      0.10107091814279556,
+      -6.0
+    ],
+    "output_quant": [
+      0.00390625,
+      -128.0
+    ],
+    "confusion_matrix": [
+      [
+        463,
+        2,
+        31,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        450,
+        20,
+        0,
+        0,
+        0
+      ],
+      [
+        5,
+        6,
+        408,
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        18,
+        6,
+        372,
+        95,
+        0
+      ],
+      [
+        2,
+        5,
+        0,
+        67,
+        458,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        0,
+        0,
+        536
+      ]
+    ]
+  },
+  "prediction_agreement": 0.9904988123515439,
+  "size_reduction_x": 1.9867044463818657,
+  "accuracy_delta": 0.002375296912114022,
+  "layer_weight_stats": [
+    {
+      "layer": "conv1d",
+      "n": 480,
+      "min": -0.5069448947906494,
+      "max": 0.5226233005523682,
+      "std": 0.19968204200267792,
+      "max_abs_over_std": 2.6172773838043213,
+      "int8_step": 0.0040375223346785
+    },
+    {
+      "layer": "conv1d_1",
+      "n": 2560,
+      "min": -0.4105287492275238,
+      "max": 0.337454617023468,
+      "std": 0.1234399601817131,
+      "max_abs_over_std": 3.3257362842559814,
+      "int8_step": 0.0029332679860732134
+    },
+    {
+      "layer": "conv1d_2",
+      "n": 3072,
+      "min": -0.47723859548568726,
+      "max": 0.4930901825428009,
+      "std": 0.14171093702316284,
+      "max_abs_over_std": 3.4795491695404053,
+      "int8_step": 0.003805211011101218
+    },
+    {
+      "layer": "dense",
+      "n": 1024,
+      "min": -0.532874584197998,
+      "max": 0.5613752603530884,
+      "std": 0.20107042789459229,
+      "max_abs_over_std": 2.791933536529541,
+      "int8_step": 0.004291175860984653
+    },
+    {
+      "layer": "dense_1",
+      "n": 192,
+      "min": -0.6717478632926941,
+      "max": 0.46958446502685547,
+      "std": 0.26128077507019043,
+      "max_abs_over_std": 2.5709807872772217,
+      "int8_step": 0.004475813285977233
+    }
+  ],
+  "int8_tensors": [
+    {
+      "name": "serving_default_window:0",
+      "dtype": "int8",
+      "shape": [
+        1,
+        128,
+        6
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "arith.constant",
+      "dtype": "int32",
+      "shape": [],
+      "scale_n": 0
+    },
+    {
+      "name": "arith.constant1",
+      "dtype": "int32",
+      "shape": [
+        3
+      ],
+      "scale_n": 0
+    },
+    {
+      "name": "arith.constant2",
+      "dtype": "int32",
+      "shape": [],
+      "scale_n": 0
+    },
+    {
+      "name": "arith.constant3",
+      "dtype": "int32",
+      "shape": [
+        3
+      ],
+      "scale_n": 0
+    },
+    {
+      "name": "arith.constant4",
+      "dtype": "int32",
+      "shape": [
+        3
+      ],
+      "scale_n": 0
+    },
+    {
+      "name": "arith.constant5",
+      "dtype": "int32",
+      "shape": [
+        3
+      ],
+      "scale_n": 0
+    },
+    {
+      "name": "tfl.pseudo_qconst",
+      "dtype": "int32",
+      "shape": [
+        6
+      ],
+      "scale_n": 6
+    },
+    {
+      "name": "tfl.pseudo_qconst1",
+      "dtype": "int8",
+      "shape": [
+        6,
+        32
+      ],
+      "scale_n": 6
+    },
+    {
+      "name": "tfl.pseudo_qconst2",
+      "dtype": "int32",
+      "shape": [
+        32
+      ],
+      "scale_n": 32
+    },
+    {
+      "name": "tfl.pseudo_qconst3",
+      "dtype": "int8",
+      "shape": [
+        32,
+        32
+      ],
+      "scale_n": 32
+    },
+    {
+      "name": "tfl.pseudo_qconst4",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "tfl.pseudo_qconst5",
+      "dtype": "int8",
+      "shape": [
+        32,
+        1,
+        3,
+        32
+      ],
+      "scale_n": 32
+    },
+    {
+      "name": "tfl.pseudo_qconst6",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "tfl.pseudo_qconst7",
+      "dtype": "int32",
+      "shape": [
+        32
+      ],
+      "scale_n": 32
+    },
+    {
+      "name": "tfl.pseudo_qconst8",
+      "dtype": "int32",
+      "shape": [
+        32
+      ],
+      "scale_n": 32
+    },
+    {
+      "name": "tfl.pseudo_qconst9",
+      "dtype": "int8",
+      "shape": [
+        32,
+        1,
+        5,
+        16
+      ],
+      "scale_n": 32
+    },
+    {
+      "name": "tfl.pseudo_qconst10",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        16
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "tfl.pseudo_qconst11",
+      "dtype": "int32",
+      "shape": [
+        16
+      ],
+      "scale_n": 16
+    },
+    {
+      "name": "tfl.pseudo_qconst12",
+      "dtype": "int8",
+      "shape": [
+        16,
+        1,
+        5,
+        6
+      ],
+      "scale_n": 16
+    },
+    {
+      "name": "har_cnn_1/conv1d_1/convolution/ExpandDims",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        128,
+        6
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_1/convolution",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        128,
+        16
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_1/convolution/Squeeze",
+      "dtype": "int8",
+      "shape": [
+        1,
+        128,
+        16
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_1/Relu;har_cnn_1/conv1d_1/add",
+      "dtype": "int8",
+      "shape": [
+        1,
+        128,
+        16
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/average_pooling1d_1/AvgPool1D/ExpandDims",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        128,
+        16
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/average_pooling1d_1/AvgPool1D",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        32,
+        16
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/average_pooling1d_1/AvgPool1D/Squeeze",
+      "dtype": "int8",
+      "shape": [
+        1,
+        32,
+        16
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_1_2/convolution/ExpandDims",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        32,
+        16
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_1_2/convolution",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        32,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_1_2/convolution/Squeeze",
+      "dtype": "int8",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_1_2/Relu;har_cnn_1/conv1d_1_2/add",
+      "dtype": "int8",
+      "shape": [
+        1,
+        32,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/average_pooling1d_1_2/AvgPool1D/ExpandDims",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        32,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/average_pooling1d_1_2/AvgPool1D",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        8,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/average_pooling1d_1_2/AvgPool1D/Squeeze",
+      "dtype": "int8",
+      "shape": [
+        1,
+        8,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_2_1/convolution/ExpandDims",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        8,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_2_1/convolution",
+      "dtype": "int8",
+      "shape": [
+        1,
+        1,
+        8,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_2_1/convolution/Squeeze",
+      "dtype": "int8",
+      "shape": [
+        1,
+        8,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/conv1d_2_1/Relu;har_cnn_1/conv1d_2_1/add",
+      "dtype": "int8",
+      "shape": [
+        1,
+        8,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/global_average_pooling1d_1/Mean",
+      "dtype": "int8",
+      "shape": [
+        1,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/dense_1/MatMul;har_cnn_1/dense_1/Relu;har_cnn_1/dense_1/Add",
+      "dtype": "int8",
+      "shape": [
+        1,
+        32
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "har_cnn_1/dense_1_2/MatMul;har_cnn_1/dense_1_2/Add",
+      "dtype": "int8",
+      "shape": [
+        1,
+        6
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "StatefulPartitionedCall_1:0",
+      "dtype": "int8",
+      "shape": [
+        1,
+        6
+      ],
+      "scale_n": 1
+    },
+    {
+      "name": "",
+      "dtype": "int32",
+      "shape": [
+        3
+      ],
+      "scale_n": 0
+    },
+    {
+      "name": "",
+      "dtype": "int32",
+      "shape": [
+        1
+      ],
+      "scale_n": 0
+    },
+    {
+      "name": "",
+      "dtype": "int32",
+      "shape": [
+        32
+      ],
+      "scale_n": 0
+    }
+  ]
+}

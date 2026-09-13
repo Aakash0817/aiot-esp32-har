@@ -1,0 +1,45 @@
+{
+  "models": {
+    "float32": {
+      "flash_bytes": 36460,
+      "arena_used_bytes": 19792,
+      "arena_size": 24576
+    },
+    "int8": {
+      "flash_bytes": 18352,
+      "arena_used_bytes": 7556,
+      "arena_size": 12288
+    }
+  },
+  "replay_windows": 18,
+  "f32_on_device_acc": 0.9444444444444444,
+  "int8_on_device_acc": 0.8888888888888888,
+  "f32_latency": {
+    "mean_us": 110588.38888888889,
+    "std_us": 179.58010867604116,
+    "max_us": 111143
+  },
+  "int8_latency": {
+    "mean_us": 446374.44444444444,
+    "std_us": 1232.8571703442115,
+    "max_us": 450172
+  },
+  "speedup_x": 0.24774802918327166,
+  "live_measured_rate_hz": [
+    50.0,
+    50.0,
+    50.0,
+    50.0
+  ],
+  "summary_line": {
+    "n": "18",
+    "f32_acc": "0.944",
+    "int8_acc": "0.889",
+    "f32_mean_us": "110588",
+    "int8_mean_us": "446374"
+  },
+  "host_device_agreement": {
+    "float32": 1.0,
+    "int8": 0.9444444444444444
+  }
+}

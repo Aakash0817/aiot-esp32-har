@@ -1,0 +1,52 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1156
+load:0x40078000,len:11456
+ho 0 tail 12 room 4
+load:0x40080400,len:2972
+entry 0x400805dc
+
+BOOT,fs=50Hz,window=128,hop=64,free_heap=259744
+SENSOR,mpu6050=ok
+MODEL,float32,flash_bytes=36460,arena_used_bytes=19792,arena_size=24576
+MODEL,int8,flash_bytes=18352,arena_used_bytes=7556,arena_size=12288
+HEAP,after_alloc=259344
+TASK,inference_core=0,sampler_core=1
+
+=== LIVE mode: real-time MPU6050 stream (sensing pipeline evidence). Drag the accel sliders to change posture.
+=== Class buttons WALK/UP/DOWN/SIT/STAND/LAY inject one recorded window of that class (INJECT lines).
+=== Press MODE (or send 'r') for REPLAY: 18 recorded windows from unseen subjects, ground truth known (model evidence).
+
+WIFI,connecting to Wokwi-GUEST
+WIFI,ok,ip=10.13.37.2
+MQTT,broker=broker.hivemq.com:1883,topic=aiot/har/c40a24/activity
+MQTT,connected
+LIVE,rate=50.0Hz,missed=0,dropped=0,acc_mean_g=[1.00 0.00 0.00],f32=STANDING,f32_conf=0.567,f32_us=213949,int8=SITTING,int8_conf=0.758,int8_us=865366
+LIVE,rate=50.0Hz,missed=0,dropped=0,acc_mean_g=[1.00 0.00 0.00],f32=STANDING,f32_conf=0.567,f32_us=214088,int8=SITTING,int8_conf=0.758,int8_us=865601
+LIVE,rate=50.0Hz,missed=0,dropped=0,acc_mean_g=[1.00 0.00 0.00],f32=STANDING,f32_conf=0.567,f32_us=214076,int8=SITTING,int8_conf=0.758,int8_us=868091
+MODE,REPLAY
+LIVE,rate=50.0Hz,missed=0,dropped=0,acc_mean_g=[1.00 0.00 0.00],f32=STANDING,f32_conf=0.567,f32_us=215242,int8=SITTING,int8_conf=0.758,int8_us=871153
+REPLAY,0,subj=13,label=WALKING,f32=WALKING(ok),f32_conf=0.998,f32_us=110424,int8=WALKING(ok),int8_conf=0.961,int8_us=445837
+REPLAY,1,subj=2,label=WALKING,f32=WALKING(ok),f32_conf=0.897,f32_us=110685,int8=WALKING(ok),int8_conf=0.652,int8_us=445641
+REPLAY,2,subj=18,label=WALKING,f32=WALKING(ok),f32_conf=1.000,f32_us=110419,int8=WALKING(ok),int8_conf=0.992,int8_us=445875
+REPLAY,3,subj=2,label=WALKING_UPSTAIRS,f32=WALKING_UPSTAIRS(ok),f32_conf=1.000,f32_us=110669,int8=WALKING_UPSTAIRS(ok),int8_conf=0.996,int8_us=447867
+REPLAY,4,subj=18,label=WALKING_UPSTAIRS,f32=WALKING_UPSTAIRS(ok),f32_conf=1.000,f32_us=111143,int8=WALKING_UPSTAIRS(ok),int8_conf=0.996,int8_us=448062
+REPLAY,5,subj=20,label=WALKING_UPSTAIRS,f32=WALKING_UPSTAIRS(ok),f32_conf=1.000,f32_us=110682,int8=WALKING_UPSTAIRS(ok),int8_conf=0.992,int8_us=445652
+REPLAY,6,subj=13,label=WALKING_DOWNSTAIRS,f32=WALKING_DOWNSTAIRS(ok),f32_conf=0.990,f32_us=110460,int8=WALKING_DOWNSTAIRS(ok),int8_conf=0.938,int8_us=445912
+REPLAY,7,subj=24,label=WALKING_DOWNSTAIRS,f32=WALKING_DOWNSTAIRS(ok),f32_conf=0.998,f32_us=110672,int8=WALKING_DOWNSTAIRS(ok),int8_conf=0.961,int8_us=445659
+REPLAY,8,subj=18,label=WALKING_DOWNSTAIRS,f32=WALKING_DOWNSTAIRS(ok),f32_conf=0.954,f32_us=110434,int8=WALKING_DOWNSTAIRS(ok),int8_conf=0.895,int8_us=445895
+REPLAY,9,subj=13,label=SITTING,f32=SITTING(ok),f32_conf=0.986,f32_us=110676,int8=SITTING(ok),int8_conf=0.973,int8_us=447932
+REPLAY,10,subj=20,label=SITTING,f32=SITTING(ok),f32_conf=0.647,f32_us=110396,int8=SITTING(ok),int8_conf=0.801,int8_us=445760
+REPLAY,11,subj=4,label=SITTING,f32=SITTING(ok),f32_conf=0.688,f32_us=110655,int8=SITTING(ok),int8_conf=0.805,int8_us=445495
+REPLAY,12,subj=13,label=STANDING,f32=STANDING(ok),f32_conf=0.977,f32_us=110427,int8=STANDING(ok),int8_conf=0.703,int8_us=445894
+REPLAY,13,subj=10,label=STANDING,f32=SITTING(WRONG),f32_conf=1.000,f32_us=110659,int8=SITTING(WRONG),int8_conf=0.996,int8_us=450172
+REPLAY,14,subj=4,label=STANDING,f32=STANDING(ok),f32_conf=0.787,f32_us=110414,int8=SITTING(WRONG),int8_conf=0.570,int8_us=445835
+REPLAY,15,subj=20,label=LAYING,f32=LAYING(ok),f32_conf=1.000,f32_us=110667,int8=LAYING(ok),int8_conf=0.996,int8_us=445645
+REPLAY,16,subj=18,label=LAYING,f32=LAYING(ok),f32_conf=1.000,f32_us=110440,int8=LAYING(ok),int8_conf=0.996,int8_us=445916
+REPLAY,17,subj=12,label=LAYING,f32=LAYING(ok),f32_conf=1.000,f32_us=110669,int8=LAYING(ok),int8_conf=0.996,int8_us=445691
+SUMMARY,n=18,f32_acc=0.944,int8_acc=0.889,f32_mean_us=110588,int8_mean_us=446374
+END
