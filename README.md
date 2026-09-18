@@ -21,43 +21,45 @@ an OLED and published over MQTT to a small web dashboard.
 
 ## Results
 
-| metric | float32 | int8 PTQ | change |
-|-|-|-|-|
-| test accuracy, 9 unseen subjects (n = 2 947) | 90.94 % | 91.18 % | +0.24 pt |
-| weight bytes | 29 784 | 7 446 | 4.0x smaller |
-| `.tflite` in flash | 36 460 B | 18 352 B | 2.0x smaller |
-| tensor arena (ESP32 RAM) | 19 792 B | 7 556 B | 2.6x smaller |
-| inference latency, Wokwi, 240 MHz, `-O2` | 110.6 ms | 446.4 ms | see note below |
-| sampling under full load | 50.0 Hz, 0 missed deadlines, 0 dropped windows | | |
+Test set: 2 947 windows from 9 subjects not used in training.
+
+| Metric | float32 | int8 PTQ | Change |
+|---|---:|---:|---|
+| Test accuracy | 90.94 % | 91.18 % | +0.24 pt |
+| Weight bytes | 29 784 | 7 446 | 4.0x smaller |
+| `.tflite` size in flash | 36 460 B | 18 352 B | 2.0x smaller |
+| Tensor arena (ESP32 RAM) | 19 792 B | 7 556 B | 2.6x smaller |
+| Inference latency (Wokwi, 240 MHz, `-O2`) | 110.6 ms | 446.4 ms | see note below |
+| Sampling under full load | 50.0 Hz | 0 missed, 0 dropped | |
 
 ![before/after](results/fig_tradeoff.png)
 
 ## Repository layout
 
 ```
-data/download_uci_har.sh      download the UCI HAR dataset (30 subjects, 50 Hz accel + gyro)
+data/download_uci_har.sh    downloads the UCI HAR dataset
 training/
-  common.py                   shared constants (50 Hz, 128-sample window, hop 64, seed 42)
-  01_prepare_data.py          raw signals  ->  (N,128,6) windows, subject-grouped train/val/test split
-  02_train.py                 float32 1D-CNN baseline
-  03_quantize.py              post-training int8 quantization + host evaluation of both models
-  04_export_c.py              .tflite models, normalisation constants and 18 test windows  ->  C headers
-  05_parse_device_log.py      ESP32 serial log  ->  on-device accuracy / latency / RAM, host-vs-device check
-  06_make_figures.py          figures
-  07_summary.py               results/summary.md
+  common.py                 shared constants: 50 Hz, window 128, hop 64, seed 42
+  01_prepare_data.py        raw signals -> (N,128,6) windows, subject-grouped split
+  02_train.py               float32 1D-CNN baseline
+  03_quantize.py            post-training int8 quantization, host evaluation
+  04_export_c.py            models, normalisation constants, test windows -> C headers
+  05_parse_device_log.py    ESP32 serial log -> on-device metrics, host-vs-device check
+  06_make_figures.py        figures
+  07_summary.py             results/summary.md
 firmware/
-  esp32_har/                  sensing + on-device inference firmware (Arduino, TensorFlow Lite Micro)
-    esp32_har.ino             sampler, windowing, dual-core inference task, OLED, MQTT
-    model_data.h              the optimised model artifact (har_int8_tflite[]) and the float32 baseline
-    har_config.h              class names, per-channel mean/std, window constants
-    test_windows.h            18 recorded windows from held-out test subjects
-    diagram.json              Wokwi wiring
-    build.sh / run_wokwi.sh   build with arduino-cli / run headless with wokwi-cli
-    replay.scenario.yaml      wokwi-cli automation: boot  ->  LIVE  ->  REPLAY  ->  SUMMARY
-  wokwi_timing_bench/         micro-benchmark used to calibrate Wokwi simulated time
-dashboard/index.html          MQTT-over-WebSocket subscriber: live activity, timeline, latency
-results/                      har_float32.tflite, har_int8.tflite, metrics (JSON), figures, device_log.txt, summary.md
-report/                       Report.pdf, Latex/ (source and figures)
+  esp32_har/                sensing + inference firmware (Arduino, TFLite Micro)
+    esp32_har.ino           sampler, windowing, inference task, OLED, MQTT
+    model_data.h            int8 model artifact (har_int8_tflite[]) + float32 baseline
+    har_config.h            class names, per-channel mean/std, window constants
+    test_windows.h          18 recorded windows from held-out test subjects
+    diagram.json            Wokwi wiring
+    build.sh, run_wokwi.sh  build with arduino-cli, run headless with wokwi-cli
+    replay.scenario.yaml    wokwi-cli automation: boot -> LIVE -> REPLAY -> SUMMARY
+  wokwi_timing_bench/       micro-benchmark to calibrate Wokwi simulated time
+dashboard/index.html        MQTT/WebSocket subscriber: live activity, timeline, latency
+results/                    .tflite models, metrics, figures, device log, summary.md
+report/                     Report.pdf, Latex/ (source and figures)
 ```
 
 ## Reproducing the results
@@ -101,8 +103,8 @@ Run it either way:
   recorded window of that class; the MPU6050 sliders drive LIVE mode.
 * **Headless**: reproduces `results/device_log.txt`:
   ```bash
-  curl -L https://wokwi.com/ci/install.sh | sh          # wokwi-cli, once
-  export WOKWI_CLI_TOKEN=...                            # free token: wokwi.com/dashboard/ci
+  curl -L https://wokwi.com/ci/install.sh | sh   # installs wokwi-cli
+  export WOKWI_CLI_TOKEN=...      # free token from wokwi.com/dashboard/ci
   firmware/esp32_har/run_wokwi.sh
   ```
 
@@ -122,8 +124,10 @@ cd training
 ## How the firmware works
 
 ```
-MPU6050 --(I2C, 50 Hz poll)--> ring buffer --(128 samples, hop 64)--> standardise --> float32 + int8 models --> OLED / serial / MQTT
-                    core 1 (sampler)                                            core 0 (inference task)
+MPU6050 --(I2C, 50 Hz poll)--> ring buffer --(128 samples, hop 64)--> standardise
+         [core 1: sampler]
+     --> float32 + int8 models --> OLED / serial / MQTT
+         [core 0: inference task]
 ```
 
 * **Sampling**: polling with a phase-locked `micros()` deadline (period 20 000 us),
