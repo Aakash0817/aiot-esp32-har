@@ -8,7 +8,7 @@ float32 baseline for accuracy, latency and memory footprint.
 
 * Board: ESP32 DevKit-C v4 (Wokwi simulation) · Sensor: MPU6050 (I2C, polled) · Display: SSD1306 OLED
 * Wokwi diagram: [`firmware/esp32_har/diagram.json`](firmware/esp32_har/diagram.json)
-  · Wokwi project link: **<paste your wokwi.com project URL here>**
+  · Wokwi project link: **https://wokwi.com/projects/475499882644462593** (sources + diagram; the free wokwi.com build server times out on TensorFlow Lite Micro, so run the simulation locally with Wokwi for VS Code or `wokwi-cli` — see §2)
 * Optional add-on: results are published over **MQTT (publish-subscribe)**; live web dashboard in [`dashboard/index.html`](dashboard/index.html)
 * All reported numbers: [`results/summary.md`](results/summary.md) (auto-generated)
 * Report: `report/report.pdf` · Demo video: **<paste YouTube link here>**
