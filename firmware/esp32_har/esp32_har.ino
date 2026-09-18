@@ -303,21 +303,26 @@ void loop() {
     }
   }
   lastBtn = b;
-  // class buttons: inject the next recorded window of that class (cycles through 3 per class)
+  // class buttons: inject the next recorded window of that class (cycles through 3 per class).
+  // A press is latched and served as soon as inference is free, with priority over LIVE windows,
+  // because inference is busy most of the time and a press would otherwise be lost.
   static int lastCls[HAR_N_CLASSES] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH}; static int nextOfClass[HAR_N_CLASSES] = {0};
+  static int pendingClass = -1;
   for (int k = 0; k < HAR_N_CLASSES; k++) {
     int v = digitalRead(CLASS_PINS[k]);
-    if (v == LOW && lastCls[k] == HIGH && !inferBusy) {
-      int hit = 0, idx = -1;
-      for (int i = 0; i < N_TEST_WINDOWS; i++) if (TEST_LABELS[i] == k && hit++ == nextOfClass[k]) { idx = i; break; }
-      if (idx >= 0) {
-        nextOfClass[k] = (nextOfClass[k] + 1) % 3;
-        memcpy_P(window, TEST_WINDOWS[idx], sizeof window);
-        char src[24]; snprintf(src, sizeof src, "BTN %s", HAR_CLASSES[k]);
-        submitWindow(src, TEST_LABELS[idx], TEST_SUBJECTS[idx], idx);
-      }
-    }
+    if (v == LOW && lastCls[k] == HIGH) pendingClass = k;
     lastCls[k] = v;
+  }
+  if (pendingClass >= 0 && !inferBusy) {
+    int k = pendingClass; pendingClass = -1;
+    int hit = 0, idx = -1;
+    for (int i = 0; i < N_TEST_WINDOWS; i++) if (TEST_LABELS[i] == k && hit++ == nextOfClass[k]) { idx = i; break; }
+    if (idx >= 0) {
+      nextOfClass[k] = (nextOfClass[k] + 1) % 3;
+      memcpy_P(window, TEST_WINDOWS[idx], sizeof window);
+      char src[24]; snprintf(src, sizeof src, "BTN %s", HAR_CLASSES[k]);
+      submitWindow(src, TEST_LABELS[idx], TEST_SUBJECTS[idx], idx);
+    }
   }
   // serial commands (used by wokwi-cli automation): 'r' -> REPLAY, 'l' -> LIVE
   if (Serial.available()) {
@@ -364,7 +369,7 @@ void loop() {
     }
     if (ringCount == HAR_WINDOW && sinceLastInfer >= HAR_HOP) {
       sinceLastInfer = 0;
-      if (inferBusy) droppedWindows++;          // keep sampling; skip this window
+      if (inferBusy || pendingClass >= 0) droppedWindows++;   // keep sampling; skip this window
       else { copyRingToWindow(); submitWindow("LIVE MPU6050", -1, -1); }
     }
   } else {
