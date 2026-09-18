@@ -169,7 +169,7 @@ static const char* WIFI_SSID = "Wokwi-GUEST", *WIFI_PASS = "";   // Wokwi's simu
 static const char* MQTT_HOST = "broker.hivemq.com"; static const int MQTT_PORT = 1883;
 WiFiClient wifiClient; PubSubClient mqtt(wifiClient);
 char mqttTopic[48];                       // aiot/har/<chip-id>/activity
-static char mqttPending[192]; static volatile bool mqttHasPending = false;   // filled by core 0, sent by core 1
+static char mqttPending[320]; static volatile bool mqttHasPending = false;   // filled by core 0, sent by core 1
 static uint32_t mqttLastTry = 0; static int mqttPublished = 0;
 
 static void mqttSetup() {
@@ -180,6 +180,7 @@ static void mqttSetup() {
   for (int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) delay(250);
   Serial.printf("WIFI,%s,ip=%s\r\n", WiFi.status() == WL_CONNECTED ? "ok" : "FAILED", WiFi.localIP().toString().c_str());
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setBufferSize(512);                 // default 256 B is too small for topic + longest JSON
   Serial.printf("MQTT,broker=%s:%d,topic=%s\r\n", MQTT_HOST, MQTT_PORT, mqttTopic);
 }
 // Called ONLY from the inference task on core 0 (PubSubClient is not thread-safe). A (re)connect can
