@@ -8,6 +8,5 @@ data/__MACOSX/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
-graft/
 report/report.html
 demo/

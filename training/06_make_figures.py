@@ -24,7 +24,7 @@ for a, key, title in [(ax[0], "float32", "float32"), (ax[1], "int8_ptq", "int8 P
 fig.tight_layout(); fig.savefig(os.path.join(RESULTS, "fig_confusion.png"), dpi=150)
 
 # 3. before/after on the three axes of the trade-off (accuracy, memory, latency)
-fig, ax = plt.subplots(1, 3, figsize=(10, 3.3))
+fig, ax = plt.subplots(1, 3, figsize=(10.5, 3.8))
 names = ["float32\n(before)", "int8 PTQ\n(after)"]
 acc = [q["float32"]["test_accuracy"] * 100, q["int8_ptq"]["test_accuracy"] * 100]
 ax[0].bar(names, acc, color=["#888", "#e07b39"]); ax[0].set_ylim(80, 100); ax[0].set_title("test accuracy (%)")
@@ -32,12 +32,15 @@ for i_, v in enumerate(acc): ax[0].text(i_, v + 0.4, f"{v:.1f}", ha="center")
 flash = [q["float32"]["size_bytes"] / 1024, q["int8_ptq"]["size_bytes"] / 1024]
 arena = [dev["models"]["float32"]["arena_used_bytes"] / 1024, dev["models"]["int8"]["arena_used_bytes"] / 1024] if dev else [0, 0]
 x = np.arange(2); ax[1].bar(x - 0.2, flash, 0.4, label="flash (.tflite)"); ax[1].bar(x + 0.2, arena, 0.4, label="RAM (arena)")
-ax[1].set_xticks(x); ax[1].set_xticklabels(names); ax[1].set_title("memory (KB)"); ax[1].legend(fontsize=8)
-for i_, (f_, a_) in enumerate(zip(flash, arena)): ax[1].text(i_ - 0.2, f_ + 0.5, f"{f_:.1f}", ha="center", fontsize=8); ax[1].text(i_ + 0.2, a_ + 0.5, f"{a_:.1f}", ha="center", fontsize=8)
+ax[1].set_xticks(x); ax[1].set_xticklabels(names); ax[1].set_title("memory (KB)"); ax[1].legend(fontsize=8, loc="upper right")
+ax[1].set_ylim(0, max(flash) * 1.25)
+for i_, (f_, a_) in enumerate(zip(flash, arena)): ax[1].text(i_ - 0.2, f_ + 0.8, f"{f_:.1f}", ha="center", fontsize=8); ax[1].text(i_ + 0.2, a_ + 0.8, f"{a_:.1f}", ha="center", fontsize=8)
 if dev and dev.get("f32_latency"):
     lat = [dev["f32_latency"]["mean_us"] / 1000, dev["int8_latency"]["mean_us"] / 1000]
     ax[2].bar(names, lat, color=["#888", "#e07b39"]); ax[2].set_title("latency, Wokwi ESP32 (ms)\nreference kernels, not cycle-accurate", fontsize=9)
-    for i_, v in enumerate(lat): ax[2].text(i_, v + 5, f"{v:.0f}", ha="center")
+    ax[2].set_ylim(0, max(lat) * 1.18)
+    for i_, v in enumerate(lat): ax[2].text(i_, v + max(lat) * 0.02, f"{v:.0f}", ha="center")
+for a in ax: a.spines["top"].set_visible(False); a.spines["right"].set_visible(False)
 fig.tight_layout(); fig.savefig(os.path.join(RESULTS, "fig_tradeoff.png"), dpi=150)
 
 # 4. weight distributions per layer (outlier discussion)

@@ -21,7 +21,7 @@ norm = lambda X: ((X - mean) / std).astype(np.float32)
 Xtr, Xte, yte = norm(d["Xtr"]), norm(d["Xte"]), d["yte"]
 model = tf.keras.models.load_model(os.path.join(RESULTS, "har_float32.keras"))
 
-# NOTE: TF 2.16 has a converter bug with Keras-3 Conv1D ("missing attribute 'value'"); TF 2.17.1 is required.
+# TF 2.16 cannot convert Keras-3 Conv1D ("missing attribute value"); TF 2.17.1 is required.
 make_conv = lambda: tf.lite.TFLiteConverter.from_keras_model(model)
 
 # --- float32 tflite (baseline) ---
