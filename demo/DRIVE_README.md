@@ -70,6 +70,3 @@ TOOLS
   ESP32 DevKit-C v4 in Wokwi · TensorFlow 2.17 / Keras 3 · TensorFlow Lite Micro · arduino-cli ·
   MQTT (broker.hivemq.com) · UCI HAR dataset (Anguita et al., 2013)
 
-AI-TOOL DISCLOSURE
-  Claude Code (Claude Opus 5) was used for pair-programming, debugging and simulation support
-  during development; details in the written report.

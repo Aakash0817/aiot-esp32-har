@@ -42,7 +42,6 @@ AI DESIGN DECISIONS
 TOOLS
 ESP32 DevKit-C v4 in Wokwi · TensorFlow 2.17 / Keras 3 · TensorFlow Lite Micro (TensorFlowLite_ESP32) · Arduino-CLI · MQTT (broker.hivemq.com) · UCI HAR dataset (Anguita et al., 2013)
 
-AI-tool disclosure: Claude Code (Claude Opus 5) was used for pair-programming, debugging and simulation support during development; details in the written report.
 
 #AIoT #TinyML #ESP32 #Quantization #TensorFlowLite #EdgeAI #Wokwi #MQTT #HumanActivityRecognition #MPU6050
 

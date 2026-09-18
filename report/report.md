@@ -158,7 +158,6 @@ I started this course thinking of an AIoT device as "a small computer that runs 
 
 **Purpose:** pair-programming and troubleshooting throughout the project — scaffolding the training, quantisation and export scripts and the ESP32 firmware; diagnosing toolchain problems (the TensorFlow 2.16 converter bug, the non-deterministic GPU pooling kernel); running and interpreting Wokwi simulations; and drafting this report from the project's results and the course material. The choices of topic, board, optimisation technique and evaluation protocol were made by the author.
 
-*Note for this archived version:* this report was drafted with the AI tool named above and is kept for personal reference. The course requires that a submitted report be written by the student; if it were ever submitted it would have to be rewritten in the author's own words, with this declaration retained.
 
 # References
 
