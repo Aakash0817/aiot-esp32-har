@@ -10,3 +10,5 @@ data/__MACOSX/
 /graft/
 report/report.html
 demo/
+graft/
+.ignore
