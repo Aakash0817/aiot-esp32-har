@@ -1,5 +1,0 @@
-TensorFlowLite_ESP32
-Adafruit SSD1306
-Adafruit GFX Library
-Adafruit BusIO
-PubSubClient
